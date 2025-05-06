@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Catalogador Integrado (MARC, Cutter, CDD)</title>
+    <title>Catalogador Integrado (Multi-Material) v3.1 - Cutter Corrigido</title>
     <style>
+        /* CSS (mantido igual à versão anterior) */
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
             padding: 15px;
@@ -53,6 +54,33 @@
              grid-column: 1 / -1; /* Make element span full width */
          }
 
+         /* Grupos de Campos Específicos (para ocultar/mostrar) */
+         .field-group {
+             grid-column: 1 / -1; /* Ocupa a largura inteira por padrão */
+             display: grid; /* Usa grid interno também */
+             grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+             gap: 15px 20px;
+             margin-top: 15px; /* Espaçamento */
+             padding-top: 15px;
+             border-top: 1px dashed #eee; /* Separador visual */
+         }
+         .field-group legend { /* Legenda opcional dentro do grupo */
+             font-size: 1em;
+             color: #555;
+             font-weight: normal;
+             margin-bottom: 10px;
+             padding: 0 5px;
+             width: auto; /* Não ocupe toda a largura */
+            border: none;
+         }
+          .field-group > div {
+             grid-column: auto / auto !important; /* Reseta span para elementos dentro do grupo */
+         }
+         .field-group > .full-width {
+              grid-column: 1 / -1 !important; /* Permite full-width dentro do grupo */
+         }
+
+
          .form-field label, .lookup-field label {
             display: block;
             margin-bottom: 6px;
@@ -60,7 +88,10 @@
             color: #444;
             font-size: 0.95em;
         }
-        .form-field input[type="text"], .form-field input[type="search"] {
+        .form-field input[type="text"],
+        .form-field input[type="search"],
+        .form-field select,
+        .form-field textarea {
             width: 100%;
             padding: 9px 10px;
             border: 1px solid #ccc;
@@ -69,20 +100,34 @@
             font-size: 1em;
             transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
         }
-        .form-field input[type="text"]:focus, .form-field input[type="search"]:focus {
+        .form-field input[type="text"]:focus,
+        .form-field input[type="search"]:focus,
+        .form-field select:focus,
+        .form-field textarea:focus {
             border-color: #80bdff;
             outline: none;
             box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.25);
         }
-         .form-field input[type="text"][name="desp"], .form-field input[type="text"][name="desps"] {
+        .form-field textarea {
+            min-height: 60px;
+             resize: vertical;
+        }
+         .form-field input[type="text"][name="desp"],
+         .form-field input[type="text"][name="desps"] {
              width: 50px; /* Smaller width for desp fields */
          }
         .form-field input[readonly] {
             background-color: #e9ecef;
             cursor: default;
         }
+        .form-field input:disabled, .form-field select:disabled, .form-field textarea:disabled {
+            background-color: #e9ecef;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
         .form-field input[type="checkbox"] {
             margin-right: 5px;
+            width: auto; /* Checkbox size */
         }
          .form-field .inline-label {
              display: inline-block;
@@ -122,6 +167,8 @@
             gap: 15px;
              font-size: 0.9em;
              margin-top: 8px;
+            align-items: center;
+            flex-wrap: wrap;
         }
          .lookup-options label { font-weight: normal;}
         #cdd-results-container {
@@ -174,7 +221,7 @@
         }
         button {
             padding: 10px 20px;
-            margin: 0 10px;
+            margin: 5px 10px; /* Allow wrap */
             border: 1px solid #ccc;
             border-radius: 5px;
             cursor: pointer;
@@ -230,6 +277,7 @@
             padding: 5px 10px;
              font-size: 0.85em;
              opacity: 0.8;
+             z-index: 2; /* Ensure it's above the text */
          }
          #copy-marc-button:hover { opacity: 1;}
 
@@ -256,6 +304,11 @@
             border-radius: 3px;
             color: #333;
         }
+
+        /* Hide elements by default */
+        .hidden {
+            display: none !important; /* Use !important to override other display settings if needed */
+        }
     </style>
 </head>
 <body>
@@ -267,81 +320,227 @@
         <form name="form1" onsubmit="return false;"> <!-- Prevent default form submission -->
 
             <fieldset>
-                <legend>Dados Principais</legend>
+                <legend>Dados Gerais e Identificação</legend>
                 <div class="form-grid">
+                    <!-- Tipo de Material -->
                     <div class="form-field">
+                        <label for="tipoMaterial">Tipo de Material:</label>
+                        <select name="tipoMaterial" id="tipoMaterial">
+                            <option value="livro" selected>Livro (Monografia)</option>
+                            <option value="periodico">Periódico (Revista, Jornal)</option>
+                            <option value="cd_vinil">CD / Vinil (Gravação Sonora)</option>
+                            <option value="partitura">Partitura Musical</option>
+                            <option value="video">Vídeo (DVD, Blu-ray, Fita)</option>
+                            <option value="mapa">Mapa</option>
+                            <!-- Adicionar outros tipos conforme necessário -->
+                        </select>
+                    </div>
+
+                    <!-- ISBN -->
+                    <div class="form-field isbn-field">
                         <label for="isbn">ISBN:</label>
                         <input type="text" name="isbn" id="isbn" autofocus>
                     </div>
-                     <div class="form-field">
-                        <label for="autor1">Autor Prenome:</label>
-                        <input type="text" name="autor1" id="autor1" size="">
+                    <!-- ISSN -->
+                    <div class="form-field issn-field hidden">
+                        <label for="issn">ISSN:</label>
+                        <input type="text" name="issn" id="issn" placeholder="Ex: 1234-5678">
                     </div>
-                    <div class="form-field">
-                        <label for="autor2">Autor Sobrenome:</label>
-                        <input type="text" name="autor2" id="autor2" size="">
-                    </div>
-                     <div class="form-field">
-                        <label for="ano">Ano Pub.:</label>
-                        <input type="text" name="ano" id="ano" size="7" maxlength="7" placeholder="Ex: 2023">
-                    </div>
-                     <div class="form-field">
-                        <label for="edicao">Edição:</label>
-                        <input type="text" name="edicao" id="edicao" size="3" maxlength="3" placeholder="Ex: 2">
-                    </div>
-
-                    <div class="form-field full-width">
-                        <label for="titulo">Título Principal:</label>
-                        <input type="text" name="titulo" id="titulo" size="50">
-                    </div>
-                     <div class="form-field full-width">
-                         <label for="desp">Caracteres Desprezados (Título):</label>
-                        <input type="text" name="desp" id="desp" value="0" size="1" maxlength="1">
-                     </div>
-
-                    <div class="form-field full-width">
-                        <label for="subtitulo">Subtítulo:</label>
-                        <input type="text" name="subtitulo" id="subtitulo" size="50">
-                    </div>
-                     <div class="form-field">
-                        <label for="local">Local Pub.:</label>
-                        <input type="text" name="local" id="local" size="">
-                    </div>
-                    <div class="form-field">
-                        <label for="editora">Editora:</label>
-                        <input type="text" name="editora" id="editora" size="">
-                    </div>
-                     <div class="form-field">
-                        <label for="paginas">Páginas:</label>
-                         <input type="text" name="paginas" id="paginas" size="5" maxlength="5" placeholder="Ex: 150">
-                     </div>
-                      <div class="form-field full-width">
-                        <input type="checkbox" name="ilust" id="ilust" value="1"><label for="ilust" class="inline-label">Ilustrado</label>
-                        <input type="checkbox" name="color" id="color" value="1"><label for="color" class="inline-label">Colorido</label>
-                    </div>
-
-                    <div class="form-field full-width">
-                        <label for="serie">Série:</label>
-                        <input type="text" name="serie" id="serie" size="">
-                    </div>
-                     <div class="form-field full-width">
-                        <label for="desps">Caracteres Desprezados (Série):</label>
-                        <input type="text" name="desps" id="desps" value="0" size="1" maxlength="1">
+                     <!-- Número Padrão (Ex: UPC para CD/DVD) -->
+                     <div class="form-field num-padrao-field hidden">
+                        <label for="numPadrao">Número Padrão (UPC/EAN/etc.):</label>
+                        <input type="text" name="numPadrao" id="numPadrao">
                     </div>
                 </div>
             </fieldset>
 
             <fieldset>
-                <legend>Classificação e Descrição</legend>
-                 <div class="form-grid">
-                    <!-- Cutter Field -->
+                <legend>Título e Responsabilidade</legend>
+                <div class="form-grid">
+                     <!-- Título Principal -->
+                    <div class="form-field full-width">
+                        <label for="titulo">Título Principal:</label>
+                        <input type="text" name="titulo" id="titulo">
+                    </div>
+                     <!-- Desprezados Título -->
+                     <div class="form-field field-group-livro field-group-periodico"> <!-- Mostrar só para texto -->
+                         <label for="desp">Caracteres Desprezados (Título):</label>
+                        <input type="text" name="desp" id="desp" value="0" size="1" maxlength="1">
+                     </div>
+                     <!-- Subtítulo -->
+                    <div class="form-field full-width">
+                        <label for="subtitulo">Subtítulo:</label>
+                        <input type="text" name="subtitulo" id="subtitulo">
+                    </div>
+
+                     <!-- Responsável Principal (Rótulo Dinâmico) -->
+                     <div class="form-field">
+                        <label for="resp1_prenome" id="label_resp1_prenome">Autor Prenome:</label>
+                        <input type="text" name="resp1_prenome" id="resp1_prenome">
+                    </div>
                     <div class="form-field">
+                        <label for="resp1_sobrenome" id="label_resp1_sobrenome">Autor Sobrenome:</label>
+                        <input type="text" name="resp1_sobrenome" id="resp1_sobrenome">
+                    </div>
+                     <!-- Diretor (Vídeo) -->
+                     <div class="form-field field-group-video hidden">
+                        <label for="diretor">Diretor:</label>
+                        <input type="text" name="diretor" id="diretor">
+                    </div>
+                     <!-- Intérprete Principal (Música/Vídeo) -->
+                     <div class="form-field field-group-cd_vinil field-group-video hidden">
+                        <label for="interprete_principal" id="label_interprete_principal">Intérprete Principal:</label>
+                        <input type="text" name="interprete_principal" id="interprete_principal">
+                    </div>
+
+                    <!-- Responsáveis Adicionais (Até 2) -->
+                    <div class="form-field">
+                        <label for="resp2_prenome" id="label_resp2_prenome">Autor 2 Prenome:</label>
+                        <input type="text" name="resp2_prenome" id="resp2_prenome">
+                    </div>
+                    <div class="form-field">
+                        <label for="resp2_sobrenome" id="label_resp2_sobrenome">Autor 2 Sobrenome:</label>
+                        <input type="text" name="resp2_sobrenome" id="resp2_sobrenome">
+                    </div>
+                    <div class="form-field">
+                        <label for="resp3_prenome" id="label_resp3_prenome">Autor 3 Prenome:</label>
+                        <input type="text" name="resp3_prenome" id="resp3_prenome">
+                    </div>
+                    <div class="form-field">
+                        <label for="resp3_sobrenome" id="label_resp3_sobrenome">Autor 3 Sobrenome:</label>
+                        <input type="text" name="resp3_sobrenome" id="resp3_sobrenome">
+                    </div>
+                </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Publicação e Descrição Física</legend>
+                 <div class="form-grid">
+                     <!-- Edição -->
+                     <div class="form-field field-group-livro field-group-partitura field-group-mapa"> <!-- Mostrar para Livro/Partitura/Mapa -->
+                        <label for="edicao">Edição:</label>
+                        <input type="text" name="edicao" id="edicao" size="3" maxlength="3" placeholder="Ex: 2">
+                    </div>
+                    <!-- Local Pub. -->
+                    <div class="form-field">
+                        <label for="local">Local Pub./Distrib.:</label>
+                        <input type="text" name="local" id="local">
+                    </div>
+                    <!-- Editora / Gravadora / Produtora -->
+                    <div class="form-field">
+                        <label for="editora" id="label_editora">Editora:</label>
+                        <input type="text" name="editora" id="editora">
+                    </div>
+                    <!-- Ano -->
+                     <div class="form-field">
+                        <label for="ano">Ano Pub./Distrib.:</label>
+                        <input type="text" name="ano" id="ano" size="7" maxlength="7" placeholder="Ex: 2023">
+                    </div>
+                    <!-- Descrição Física (Genérico) -->
+                    <div class="form-field full-width">
+                        <label for="descFisica">Descrição Física:</label>
+                        <input type="text" name="descFisica" id="descFisica" placeholder="Ex: 150 p. ou 1 CD (ca. 60 min) ou 1 mapa : color. ; 50 x 75 cm">
+                    </div>
+                     <!-- Ilustrado/Colorido (Livro/Mapa/Partitura) -->
+                      <div class="form-field full-width field-group-livro field-group-mapa field-group-partitura">
+                        <input type="checkbox" name="ilust" id="ilust" value="1"><label for="ilust" class="inline-label">Ilust./Mapas</label>
+                        <input type="checkbox" name="color" id="color" value="1"><label for="color" class="inline-label">Colorido</label>
+                    </div>
+                    <!-- Duração (Vídeo/Música) -->
+                     <div class="form-field field-group-video field-group-cd_vinil hidden">
+                        <label for="duracao">Duração (aprox.):</label>
+                        <input type="text" name="duracao" id="duracao" placeholder="Ex: 95 min.">
+                    </div>
+                    <!-- Escala (Mapa) -->
+                    <div class="form-field field-group-mapa hidden">
+                        <label for="escala">Escala:</label>
+                        <input type="text" name="escala" id="escala" placeholder="Ex: 1:50.000">
+                    </div>
+                 </div>
+            </fieldset>
+
+            <!-- Campos Específicos Agrupados -->
+             <fieldset class="field-group-periodico hidden">
+                 <legend>Dados de Periódico</legend>
+                 <div class="field-group">
+                     <div class="form-field">
+                         <label for="frequencia">Frequência:</label>
+                         <input type="text" name="frequencia" id="frequencia" placeholder="Ex: Mensal, Trimestral">
+                     </div>
+                     <div class="form-field">
+                         <label for="num_inicio">Numeração Inicial (Vol, No, Data):</label>
+                         <input type="text" name="num_inicio" id="num_inicio" placeholder="Ex: v. 1, n. 1 (jan./mar. 2020)">
+                     </div>
+                      <div class="form-field">
+                         <label for="num_fim">Numeração Final (se encerrado):</label>
+                         <input type="text" name="num_fim" id="num_fim">
+                     </div>
+                 </div>
+             </fieldset>
+
+            <fieldset class="field-group-cd_vinil field-group-partitura field-group-video hidden">
+                 <legend>Dados de Música / Vídeo / Partitura</legend>
+                 <div class="field-group">
+                    <!-- Lista de Faixas / Conteúdo -->
+                    <div class="form-field full-width field-group-cd_vinil field-group-video"> <!-- Ocultar para Partitura? -->
+                        <label for="conteudo">Conteúdo (Faixas / Capítulos / Resumo):</label>
+                        <textarea name="conteudo" id="conteudo" placeholder="Listar faixas ou resumo do conteúdo..."></textarea>
+                    </div>
+                     <!-- Elenco (Vídeo) -->
+                     <div class="form-field full-width field-group-video hidden">
+                        <label for="elenco">Elenco Principal:</label>
+                        <textarea name="elenco" id="elenco" placeholder="Ator 1, Ator 2..."></textarea>
+                    </div>
+                     <!-- Forma/Gênero Musical -->
+                      <div class="form-field field-group-cd_vinil field-group-partitura hidden">
+                        <label for="forma_genero">Forma / Gênero Musical:</label>
+                        <input type="text" name="forma_genero" id="forma_genero" placeholder="Ex: Rock, Sonata, Samba">
+                    </div>
+                     <!-- Instrumentação (Partitura) -->
+                     <div class="form-field field-group-partitura hidden">
+                         <label for="instrumentacao">Instrumentação:</label>
+                        <input type="text" name="instrumentacao" id="instrumentacao" placeholder="Ex: Piano solo, Orquestra">
+                     </div>
+                      <!-- Detalhes Técnicos (Vídeo/CD) -->
+                      <div class="form-field field-group-video field-group-cd_vinil hidden">
+                        <label for="detalhes_tecnicos">Detalhes Técnicos:</label>
+                        <input type="text" name="detalhes_tecnicos" id="detalhes_tecnicos" placeholder="Ex: VHS, NTSC, Stereo, Digital">
+                     </div>
+                 </div>
+             </fieldset>
+
+            <fieldset>
+                <legend>Série e Notas</legend>
+                 <div class="form-grid">
+                    <!-- Série -->
+                    <div class="form-field full-width field-group-livro field-group-video field-group-cd_vinil field-group-partitura field-group-mapa"> <!-- Mostrar para relevantes -->
+                        <label for="serie">Série / Coleção:</label>
+                        <input type="text" name="serie" id="serie">
+                    </div>
+                     <!-- Desprezados Série -->
+                     <div class="form-field field-group-livro"> <!-- Mostrar só para texto -->
+                        <label for="desps">Caracteres Desprezados (Série):</label>
+                        <input type="text" name="desps" id="desps" value="0" size="1" maxlength="1">
+                    </div>
+                    <!-- Nota Geral -->
+                    <div class="form-field full-width">
+                        <label for="nota">Nota Geral:</label>
+                        <input type="text" name="nota" id="nota">
+                    </div>
+                 </div>
+            </fieldset>
+
+            <fieldset>
+                <legend>Classificação e Assuntos</legend>
+                 <div class="form-grid">
+                    <!-- Cutter -->
+                    <div class="form-field cutter-field">
                         <label for="cutter">Cutter:</label>
                         <input type="text" name="cutter" id="cutter" size="7" maxlength="7">
                          <span id="cutter-status" class="status-message"></span>
                     </div>
 
-                    <!-- CDD Field (Main Entry) -->
+                    <!-- CDD -->
                     <div class="form-field">
                         <label for="cdd">Classificação CDD:</label>
                         <input type="text" name="cdd" id="cdd" size="" placeholder="Busque ou digite...">
@@ -355,11 +554,11 @@
                      <div class="lookup-controls">
                          <div class="lookup-field">
                              <label for="cdd-search-term">Número CDD:</label>
-                             <input type="search" id="cdd-search-term" placeholder="Ex: 370 ou 616.8">
+                             <input type="search" id="cdd-search-term" placeholder="Ex: 370 ou 782.42">
                          </div>
                          <div class="lookup-field">
                               <label for="subject-search-term">Assunto:</label>
-                             <input type="search" id="subject-search-term" placeholder="Ex: música educação">
+                             <input type="search" id="subject-search-term" placeholder="Ex: música educação rock">
                          </div>
                      </div>
                       <div class="lookup-options">
@@ -373,7 +572,7 @@
                           </div>
                          <button type="button" id="clear-cdd-lookup">Limpar Busca CDD</button>
                      </div>
-                     <div id="cdd-results-container" style="display: none;">
+                     <div id="cdd-results-container" class="hidden">
                          <table id="cdd-results-table">
                              <thead>
                                  <tr>
@@ -385,12 +584,12 @@
                                  <!-- Results here -->
                              </tbody>
                          </table>
-                         <div id="no-results-message" class="no-results" style="display: none;">Nenhum resultado encontrado.</div>
+                         <div id="no-results-message" class="no-results hidden">Nenhum resultado encontrado.</div>
                      </div>
                  </div>
 
                 <div class="form-grid">
-                    <!-- Subject Fields -->
+                    <!-- Assuntos -->
                     <div class="form-field full-width">
                         <label for="assunto1">Assunto 1:</label>
                         <input type="text" name="assunto1" id="assunto1" size="">
@@ -402,30 +601,6 @@
                     <div class="form-field full-width">
                         <label for="assunto3">Assunto 3:</label>
                         <input type="text" name="assunto3" id="assunto3" size="">
-                    </div>
-
-                     <!-- Additional Authors -->
-                     <div class="form-field">
-                        <label for="autor12">Autor 2 Prenome:</label>
-                        <input type="text" name="autor12" id="autor12" size="">
-                    </div>
-                    <div class="form-field">
-                        <label for="autor22">Autor 2 Sobrenome:</label>
-                        <input type="text" name="autor22" id="autor22" size="">
-                    </div>
-                    <div class="form-field">
-                        <label for="autor13">Autor 3 Prenome:</label>
-                        <input type="text" name="autor13" id="autor13" size="">
-                    </div>
-                    <div class="form-field">
-                        <label for="autor23">Autor 3 Sobrenome:</label>
-                        <input type="text" name="autor23" id="autor23" size="">
-                    </div>
-
-                     <!-- Notes -->
-                    <div class="form-field full-width">
-                        <label for="nota">Nota Geral:</label>
-                        <input type="text" name="nota" id="nota" size="">
                     </div>
                 </div>
 
@@ -439,7 +614,7 @@
         </form>
 
         <!-- MARC Output Area -->
-        <div id="marc-output-container" style="display: none;">
+        <div id="marc-output-container" class="hidden">
              <h2>Preview MARC</h2>
              <button id="copy-marc-button" title="Copiar MARC">Copiar</button>
             <div id="marc-output">
@@ -452,7 +627,7 @@
     <script>
         // --- START DATA AREA ---
 
-        // !!! IMPORTANTE: COLE TODO O CONTEÚDO DO ARQUIVO Cutter.txt AQUI DENTRO DAS ASPAS INVERTIDAS (` `) !!!
+        // !!! IMPORTANTE: COLE TODO O CONTEÚDO DO ARQUIVO Cutter.txt AQUI DENTRO DAS ASPAS INVERTIDAS (` `) ABAIXO !!!
         const cutterDataString = `
 111 Aa 111 Ba 111 Ca
 112 Aal 112 Bab 112 Cab
@@ -6377,14 +6552,10 @@ Y Z
 97 Yve 97 Zw
 98 Yves 98 Zwi
 99 Yvo 99 Zy
-/* Exemplo:
-111 Aa 111 Ba 111 Ca
-112 Aal 112 Bab 112 Cab
-... (resto dos dados Cutter) ...
-*/
+
 `;
 
-        // !!! COLE O CONTEÚDO DO cdd_summary.txt AQUI !!!
+        // !!! IMPORTANTE: COLE TODO O CONTEÚDO DO ARQUIVO cdd_summary.txt AQUI DENTRO DAS ASPAS INVERTIDAS (` `) ABAIXO !!!
         const cddDataString = `
 Classificação Decimal de Dewey
 
@@ -11718,14 +11889,7 @@ OBS. Primeira Guerra Mundial  ver 940.3
 997 – Hist. Ilhas do Oceano Atlântico
 998 – Hist. de Ilhas do Ártico e Antártica
 998.2 – Groenlândia
-999 – Hist. de Mundos extraterrestres/* Exemplo:
-Classificação Decimal de Dewey
-
-000 – Generalidades
-001 – Conhecimento  / Teoria
-... (resto dos dados CDD) ...
-*/
-`;
+999 – Hist. de Mundos extraterrestres`;
         // --- END DATA AREA ---
 
 
@@ -11737,9 +11901,20 @@ Classificação Decimal de Dewey
         let cddSearchTimeout = null;
         let cutterLookupTimeout = null;
 
+        // Articles to ignore for Cutter by Title (add more as needed)
+        const articlesToIgnore = {
+            'pt': ['o', 'a', 'os', 'as', 'um', 'uma', 'uns', 'umas'],
+            'en': ['the', 'a', 'an'],
+            'es': ['el', 'la', 'los', 'las', 'un', 'una', 'unos', 'unas'],
+            'fr': ['le', 'la', 'les', 'l\'', 'un', 'une', 'des'], // Added l'
+            'it': ['il', 'lo', 'la', 'i', 'gli', 'le', 'un', 'uno', 'una']
+            // Add other languages if necessary
+        };
+
 
         // --- Elements ---
         const form = document.form1; // Direct access via name
+        const tipoMaterialSelect = document.getElementById('tipoMaterial');
         const generalStatus = document.getElementById('general-status');
         const cutterStatus = document.getElementById('cutter-status');
         const cddStatus = document.getElementById('cdd-status');
@@ -11752,6 +11927,14 @@ Classificação Decimal de Dewey
         const subjectWholeWordCheckbox = document.getElementById('subject-whole-word');
         const marcOutputContainer = document.getElementById('marc-output-container');
         const marcOutputDiv = document.getElementById('marc-output');
+        const cutterInput = document.getElementById('cutter'); // Cache cutter input element
+        const tituloInput = document.getElementById('titulo'); // Cache titulo input
+        const despInput = document.getElementById('desp'); // Cache desp input
+        const resp1SobrenomeInput = document.getElementById('resp1_sobrenome'); // Cache resp1_sobrenome input
+        const resp1PrenomeInput = document.getElementById('resp1_prenome'); // Cache resp1_prenome input
+
+
+        const nbsp = "&nbsp;"; // Use for spacing in MARC output
 
         // --- Utility Functions ---
         function normalizeString(text) {
@@ -11774,6 +11957,7 @@ Classificação Decimal de Dewey
          }
 
          function setStatusMessage(element, message, type = 'info', clearAfter = 3000) {
+            if (!element) return; // Avoid errors if element not found
             element.textContent = message;
             element.className = 'status-message'; // Reset classes
             if (type === 'error') {
@@ -11792,20 +11976,32 @@ Classificação Decimal de Dewey
             }
          }
 
+         // Function to show/hide elements based on CSS class selector
+         function showHideElements(selector, show = true) {
+             document.querySelectorAll(selector).forEach(el => {
+                 if (show) {
+                     el.classList.remove('hidden');
+                 } else {
+                     el.classList.add('hidden');
+                 }
+             });
+         }
 
         // --- Data Loading Functions ---
         function loadCutterData(dataString) {
             loadedCutterData = [];
-            if (!dataString || /^\s*\/\*.*AQUI.*\*\/\s*$/s.test(dataString.trim()) || dataString.trim() === '') {
-                setStatusMessage(generalStatus, "Erro Cutter: Dados não encontrados no código.", 'error', 0);
+            const trimmedData = dataString.trim();
+            const placeholderPattern = /COLE AQUI.*Cutter\.txt/si;
+
+            if (!trimmedData || placeholderPattern.test(trimmedData)) {
+                setStatusMessage(generalStatus, "Erro Cutter: Dados não encontrados ou placeholder presente. Cole os dados Cutter na variável 'cutterDataString'.", 'error', 0);
                 cutterDataLoadError = true;
                 return;
             }
-
             try {
-                const lines = dataString.trim().split('\n');
+                const lines = trimmedData.split('\n');
                 lines.forEach(line => {
-                     const parts = line.trim().split(/\s+/);
+                    const parts = line.trim().split(/\s+/);
                     for (let i = 0; i < parts.length; i += 2) {
                         if (i + 1 < parts.length) {
                             const number = parts[i];
@@ -11817,15 +12013,10 @@ Classificação Decimal de Dewey
                         }
                     }
                 });
-
                 if (loadedCutterData.length === 0) throw new Error("Nenhuma entrada Cutter válida processada.");
-
                 loadedCutterData.sort((a, b) => a.nameNormalized.localeCompare(b.nameNormalized));
                 console.log(`${loadedCutterData.length} entradas Cutter carregadas.`);
                 cutterDataLoadError = false;
-                 updateGeneralStatus();
-
-
             } catch (e) {
                  setStatusMessage(generalStatus, `Erro ao carregar Cutter: ${e.message}`, 'error', 0);
                  console.error("Erro Cutter:", e);
@@ -11835,72 +12026,117 @@ Classificação Decimal de Dewey
 
         function loadCddData(dataString) {
             loadedCddEntries = [];
-             if (!dataString || /^\s*\/\*.*AQUI.*\*\/\s*$/s.test(dataString.trim()) || dataString.trim() === '') {
-                 setStatusMessage(generalStatus, "Erro CDD: Dados não encontrados no código.", 'error', 0);
-                 cddDataLoadError = true;
-                 return;
-             }
+            const trimmedData = dataString.trim();
+            const placeholderPattern = /COLE AQUI.*cdd_summary\.txt/si;
 
+            if (!trimmedData || placeholderPattern.test(trimmedData)) {
+                setStatusMessage(generalStatus, "Erro CDD: Dados não encontrados ou placeholder presente. Cole os dados CDD na variável 'cddDataString'.", 'error', 0);
+                cddDataLoadError = true;
+                return;
+            }
             try {
-                const lines = dataString.trim().split('\n');
-                 const lineRegex = /^([Rr]\s*)?([\d.-]+)\s*(.*)$/; // Captura R opcional, CDD, Descrição
-                let currentCdd = '';
-                let lastEntry = null; // Referência à última entrada para continuações
-
+                const lines = trimmedData.split('\n');
+                const lineRegex = /^([Rr]\s*)?([\d.-]+)\s*(.*)$/;
+                let lastEntry = null;
                 lines.forEach(line => {
-                     const trimmedLine = line.trim();
-                     if (trimmedLine === '' || /Classificação Decimal de Dewey/i.test(trimmedLine)) return;
-
-                     const match = trimmedLine.match(lineRegex);
-
-                     if (match) {
-                         // Linha começa com CDD
-                        currentCdd = (match[1] ? match[1].trim() : '') + match[2].trim();
-                        const description = match[3].trim().replace(/\s+-\s*$/, '').trim(); // Remover traço solto no fim
-
-                         const newEntry = {
-                            cdd: currentCdd,
-                            description: description,
-                            normalizedDescription: normalizeString(description)
-                        };
+                    const trimmedLine = line.trim();
+                    if (trimmedLine === '' || /Classificação Decimal de Dewey/i.test(trimmedLine)) return;
+                    const match = trimmedLine.match(lineRegex);
+                    if (match) {
+                        const currentCdd = (match[1] ? match[1].trim() : '') + match[2].trim();
+                        const description = match[3].trim().replace(/\s+-\s*$/, '').trim();
+                        const newEntry = { cdd: currentCdd, description: description, normalizedDescription: normalizeString(description) };
                         loadedCddEntries.push(newEntry);
-                         lastEntry = newEntry; // Define como a última entrada
-
+                        lastEntry = newEntry;
                     } else if (lastEntry && /^\s+/.test(line) && trimmedLine) {
-                        // Linha indentada e não vazia -> continuação
-                         lastEntry.description += ' ' + trimmedLine.replace(/\s+-\s*$/, '').trim(); // Anexa descrição
-                        lastEntry.normalizedDescription = normalizeString(lastEntry.description); // Re-normaliza
-                     }
-                    // Ignorar linhas que não se encaixam (ou registrar como erro, se preferir)
+                        lastEntry.description += ' ' + trimmedLine.replace(/\s+-\s*$/, '').trim();
+                        lastEntry.normalizedDescription = normalizeString(lastEntry.description);
+                    } else if (trimmedLine && !lineRegex.test(trimmedLine) && lastEntry) {
+                        lastEntry.description += ' ' + trimmedLine.replace(/\s+-\s*$/, '').trim();
+                        lastEntry.normalizedDescription = normalizeString(lastEntry.description);
+                    }
                 });
-
-
-                if (loadedCddEntries.length === 0) throw new Error("Nenhuma entrada CDD válida processada.");
-
-                console.log(`${loadedCddEntries.length} entradas CDD carregadas.`);
-                cddDataLoadError = false;
-                 updateGeneralStatus();
-
+                 if (loadedCddEntries.length === 0) throw new Error("Nenhuma entrada CDD válida processada.");
+                 console.log(`${loadedCddEntries.length} entradas CDD carregadas.`);
+                 cddDataLoadError = false;
              } catch (e) {
                 setStatusMessage(generalStatus, `Erro ao carregar CDD: ${e.message}`, 'error', 0);
                 console.error("Erro CDD:", e);
-                 cddDataLoadError = true;
+                cddDataLoadError = true;
             }
         }
 
-         function updateGeneralStatus() {
-             if (!cutterDataLoadError && !cddDataLoadError) {
-                 setStatusMessage(generalStatus, `Dados carregados: ${loadedCutterData.length} Cutter, ${loadedCddEntries.length} CDD.`, 'info', 5000);
-             } else if (cutterDataLoadError && cddDataLoadError) {
-                  setStatusMessage(generalStatus, "Erro ao carregar dados Cutter e CDD.", 'error', 0);
-             } else if (cutterDataLoadError) {
-                  setStatusMessage(generalStatus, "Erro ao carregar dados Cutter.", 'error', 0);
-             } else { // cddDataLoadError only
-                 setStatusMessage(generalStatus, "Erro ao carregar dados CDD.", 'error', 0);
-             }
-         }
+        function updateGeneralStatus() {
+            if (!cutterDataLoadError && !cddDataLoadError) {
+                setStatusMessage(generalStatus, `Dados carregados: ${loadedCutterData.length} Cutter, ${loadedCddEntries.length} CDD.`, 'info', 5000);
+            } else {
+                let errorMsg = "Erro ao carregar dados: ";
+                if (cutterDataLoadError) errorMsg += "Cutter ";
+                if (cddDataLoadError) errorMsg += (cutterDataLoadError ? "e " : "") + "CDD ";
+                errorMsg += ". Verifique as variáveis no código.";
+                setStatusMessage(generalStatus, errorMsg, 'error', 0);
+            }
+        }
 
-        // --- Cutter Logic ---
+        // --- Cutter Logic (Corrected for Title/Author) ---
+
+        function getFirstSignificantWord(title, charsToSkip = 0, lang = 'pt') {
+            if (!title) return null;
+
+            let startIndex = charsToSkip;
+            // Skip initial whitespace after skipping chars
+            while (startIndex < title.length && /\s/.test(title[startIndex])) {
+                startIndex++;
+            }
+            let currentTitleSegment = title.substring(startIndex);
+            if (!currentTitleSegment) return null;
+
+            let normalizedSegment = normalizeString(currentTitleSegment);
+            // Detect language based on articles (simple approach)
+            if (lang === 'pt') { // Auto-detect common non-portuguese articles if lang is default
+               if (/^(the|a|an|el|la|los|las|le|les|l')\s/i.test(currentTitleSegment)) {
+                  lang = 'en'; // Assume English/Spanish/French if starts with these
+                  // More sophisticated detection could be added
+               }
+            }
+            const articles = articlesToIgnore[lang] || articlesToIgnore['en']; // Fallback to English
+
+
+            let articleFound = true;
+            while (articleFound && currentTitleSegment) {
+                articleFound = false;
+                normalizedSegment = normalizeString(currentTitleSegment); // Re-normalize each time
+
+                for (const article of articles) {
+                    const articlePattern = new RegExp(`^${escapeRegExp(article)}(\\s|$)`, 'i'); // Match article at start, followed by space or end
+
+                    if (articlePattern.test(currentTitleSegment)) {
+                         // Find the length of the matched article in the original segment
+                         const match = currentTitleSegment.match(articlePattern);
+                         const matchedArticleLength = match[0].trim().length; // Length of the article itself
+
+                         // Move start index past the article and subsequent spaces
+                         startIndex += matchedArticleLength;
+                        while (startIndex < title.length && /\s/.test(title[startIndex])) {
+                            startIndex++;
+                        }
+                        currentTitleSegment = title.substring(startIndex);
+
+                        if (!currentTitleSegment) return null; // Nothing left after article
+
+                        articleFound = true;
+                        break; // Restart check with the new segment
+                    }
+                }
+            }
+
+            // Find the first word in the remaining original-case title segment
+            const firstWordMatch = currentTitleSegment.match(/^(\S+)/);
+            // console.log("getFirstSignificantWord result:", firstWordMatch ? firstWordMatch[1] : null, "from title:", title, "skipping", charsToSkip, "startIdx", startIndex); // Debugging
+            return firstWordMatch ? firstWordMatch[1] : null;
+        }
+
+
         function findCutterNumber(inputText, cutterTable) {
             if (cutterDataLoadError || !cutterTable || cutterTable.length === 0 || !inputText) {
                 return null;
@@ -11908,303 +12144,541 @@ Classificação Decimal de Dewey
             const inputNormalized = normalizeString(inputText);
             let bestMatchNumber = null;
             for (const item of cutterTable) {
-                 const { nameNormalized, number } = item;
-                 if (nameNormalized === inputNormalized) return number;
-                 if (nameNormalized < inputNormalized) bestMatchNumber = number;
-                 else return bestMatchNumber; // Passed the spot
+                const { nameNormalized, number } = item;
+                const comparison = inputNormalized.localeCompare(nameNormalized);
+                if (comparison === 0) return number; // Exact match
+                if (comparison > 0) {
+                    bestMatchNumber = number;
+                } else {
+                    return bestMatchNumber;
+                }
             }
-            return bestMatchNumber; // Input text is after last table entry
+            return bestMatchNumber;
         }
 
-         const debouncedCutterLookup = debounce(() => {
-            if (cutterDataLoadError) return;
-            const surname = form.autor2.value.trim();
-             if (!surname) {
-                // form.cutter.value = ''; // Don't clear automatically? Or maybe yes? User choice.
-                cutterStatus.textContent = '';
-                 return;
-             }
+        const debouncedCutterLookup = debounce(() => {
+            if (cutterDataLoadError) {
+                setStatusMessage(cutterStatus, "Erro nos dados Cutter.", 'error');
+                return;
+            }
 
-            const baseNumber = findCutterNumber(surname, loadedCutterData);
+            const tipo = tipoMaterialSelect.value;
+            const titulo = tituloInput.value.trim();
+            const desp = parseInt(despInput.value) || 0;
+            const sobrenome = resp1SobrenomeInput.value.trim();
+            const prenome = resp1PrenomeInput.value.trim();
+            const diretor = form.diretor.value.trim(); // Get director for video check
 
-            if (baseNumber) {
-                const firstLetter = surname[0].toUpperCase();
-                const finalCutter = `${firstLetter}${baseNumber}`;
-                form.cutter.value = finalCutter; // Update the main form field
-                 setStatusMessage(cutterStatus, `Sugestão: ${finalCutter}`, 'info');
+            let lookupBasisWord = null;
+            let baseLetter = '';
+            let lookupSource = ''; // To inform the user
+
+            // --- Decide the basis for Cutter ---
+            const hasResponsibleName = sobrenome || prenome;
+            const hasDirector = tipo === 'video' && diretor;
+
+            // Priority: Responsible Name for certain types, IF provided
+            if (hasResponsibleName && (tipo === 'livro' || tipo === 'partitura' || tipo === 'mapa' || tipo === 'cd_vinil')) {
+                if (sobrenome) {
+                    lookupBasisWord = sobrenome;
+                    baseLetter = sobrenome[0].toUpperCase();
+                    lookupSource = `sobrenome (${sobrenome})`;
+                } else { // Use prenome if no sobrenome
+                    lookupBasisWord = prenome;
+                    baseLetter = prenome[0].toUpperCase();
+                    lookupSource = `prenome (${prenome})`;
+                }
+            } else if (hasDirector && tipo === 'video') { // Director for video if no other name is primary
+                 lookupBasisWord = diretor.split(' ').pop(); // Use last name of director
+                 if(lookupBasisWord) {
+                      baseLetter = lookupBasisWord[0].toUpperCase();
+                      lookupSource = `diretor (${lookupBasisWord})`;
+                 }
+            }
+
+            // Fallback to Title if no suitable name OR if type typically uses title (Periodical)
+            if (!lookupBasisWord && titulo) {
+                 lookupBasisWord = getFirstSignificantWord(titulo, desp);
+                 if (lookupBasisWord) {
+                     baseLetter = lookupBasisWord[0].toUpperCase();
+                     lookupSource = `título (${lookupBasisWord})`;
+                 }
+            }
+
+            // --- Perform Lookup and Update ---
+            if (!lookupBasisWord) {
+                cutterInput.value = '';
+                setStatusMessage(cutterStatus, "Informe Responsável ou Título", 'info');
+                return;
+            }
+
+            const baseNumber = findCutterNumber(lookupBasisWord, loadedCutterData);
+
+            if (baseNumber && baseLetter) {
+                const finalCutter = `${baseLetter}${baseNumber}`;
+                cutterInput.value = finalCutter;
+                setStatusMessage(cutterStatus, `Sugestão por ${lookupSource}: ${finalCutter}`, 'info');
             } else {
-                // form.cutter.value = ''; // Clear if no suggestion?
-                setStatusMessage(cutterStatus, "Nenhuma sugestão Cutter", 'info');
-             }
-        }, 500); // 500ms debounce
+                cutterInput.value = ''; // Clear if no number found
+                setStatusMessage(cutterStatus, `Nenhuma sugestão Cutter para '${lookupBasisWord}'`, 'info');
+            }
+        }, 500);
 
-        // --- CDD Lookup Logic ---
+
+        // --- CDD Lookup Logic --- (Unchanged)
          function searchCdd() {
              if (cddDataLoadError) {
                 cddResultsBody.innerHTML = '';
                 cddNoResultsMessage.textContent = 'Erro ao carregar dados CDD.';
-                cddNoResultsMessage.style.display = 'block';
-                 cddResultsContainer.style.display = 'block';
+                cddNoResultsMessage.classList.remove('hidden');
+                 cddResultsContainer.classList.remove('hidden');
                 return;
              }
-
              const cddQuery = cddSearchInput.value.trim();
              const subjectQuery = subjectSearchInput.value.trim();
              const isCddExact = cddExactMatchCheckbox.checked;
              const isSubjectWholeWord = subjectWholeWordCheckbox.checked;
-
              if (!cddQuery && !subjectQuery) {
-                 cddResultsContainer.style.display = 'none';
+                 cddResultsContainer.classList.add('hidden');
                  return;
              }
-
-            const normalizedSubjectTerms = subjectQuery ? normalizeString(subjectQuery).split(/\s+/).filter(term => term) : [];
-            const lowerCddQuery = cddQuery.toLowerCase();
-
-            const filteredEntries = loadedCddEntries.filter(entry => {
+             const normalizedSubjectTerms = subjectQuery ? normalizeString(subjectQuery).split(/\s+/).filter(term => term) : [];
+             const lowerCddQuery = cddQuery.toLowerCase();
+             const filteredEntries = loadedCddEntries.filter(entry => {
                  let cddMatch = true;
                  let subjectMatch = true;
-
                  if (cddQuery) {
                      const entryCddLower = entry.cdd.toLowerCase();
                      cddMatch = isCddExact ? entryCddLower === lowerCddQuery : entryCddLower.startsWith(lowerCddQuery);
                  }
-
                  if (normalizedSubjectTerms.length > 0) {
                     subjectMatch = normalizedSubjectTerms.every(term => {
                         const regex = isSubjectWholeWord
                             ? new RegExp(`\\b${escapeRegExp(term)}\\b`, 'i')
-                            : new RegExp(escapeRegExp(term), 'i'); // Simpler contains check (case-insensitive)
+                            : new RegExp(escapeRegExp(term), 'i');
                         return regex.test(entry.normalizedDescription);
                      });
                  }
                 return cddMatch && subjectMatch;
              });
-
              displayCddResults(filteredEntries, cddQuery, normalizedSubjectTerms, isCddExact, isSubjectWholeWord);
          }
 
         function displayCddResults(entries, cddQuery, subjectTerms, isCddExact, isSubjectWholeWord) {
             cddResultsBody.innerHTML = ''; // Clear previous results
-
             if (entries.length === 0) {
                 cddNoResultsMessage.textContent = 'Nenhum resultado encontrado.';
-                 cddNoResultsMessage.style.display = 'block';
+                 cddNoResultsMessage.classList.remove('hidden');
              } else {
-                cddNoResultsMessage.style.display = 'none';
-
+                cddNoResultsMessage.classList.add('hidden');
                 let cddHighlightRegex = null;
-                 if (cddQuery) {
-                    cddHighlightRegex = isCddExact
-                         ? new RegExp('^' + escapeRegExp(cddQuery) + '$', 'i') // Whole string match
-                         : new RegExp('^' + escapeRegExp(cddQuery), 'i');    // Starts with
-                }
-
-
+                 if (cddQuery) { cddHighlightRegex = isCddExact ? new RegExp('^' + escapeRegExp(cddQuery) + '$', 'i') : new RegExp('^' + escapeRegExp(cddQuery), 'i'); }
                  let subjectHighlightRegex = null;
-                 if (subjectTerms.length > 0) {
-                    const termsPattern = subjectTerms.map(term =>
-                         isSubjectWholeWord ? `\\b${escapeRegExp(term)}\\b` : escapeRegExp(term)
-                    ).join('|');
-                    subjectHighlightRegex = new RegExp(`(${termsPattern})`, 'gi');
-                }
-
-
-                entries.forEach(entry => {
-                     const row = cddResultsBody.insertRow();
-                     row.title = `Clique para usar '${entry.cdd}'`;
-                     row.onclick = () => selectCddResult(entry.cdd, entry.description); // Add click handler
-
-                    const cellCdd = row.insertCell();
-                     const cellDesc = row.insertCell();
-
+                 if (subjectTerms.length > 0) { const termsPattern = subjectTerms.map(term => isSubjectWholeWord ? `\\b${escapeRegExp(term)}\\b` : escapeRegExp(term)).join('|'); subjectHighlightRegex = new RegExp(`(${termsPattern})`, 'gi'); }
+                 entries.forEach(entry => {
+                     const row = cddResultsBody.insertRow(); row.title = `Clique para usar '${entry.cdd}'`; row.onclick = () => selectCddResult(entry.cdd, entry.description);
+                     const cellCdd = row.insertCell(); const cellDesc = row.insertCell();
                      cellCdd.innerHTML = cddHighlightRegex ? entry.cdd.replace(cddHighlightRegex, '<span class="highlight">$&</span>') : entry.cdd;
-                    cellDesc.innerHTML = subjectHighlightRegex ? entry.description.replace(subjectHighlightRegex, '<span class="highlight">$1</span>') : entry.description;
-
-                });
+                     cellDesc.innerHTML = subjectHighlightRegex ? entry.description.replace(subjectHighlightRegex, '<span class="highlight">$1</span>') : entry.description;
+                 });
              }
-             cddResultsContainer.style.display = 'block'; // Show results area
+             cddResultsContainer.classList.remove('hidden');
         }
 
         function selectCddResult(cddValue, description) {
-             form.cdd.value = cddValue.replace(/[Rr]\s*/, ''); // Set main CDD field (remove R prefix if present)
-            cddResultsContainer.style.display = 'none'; // Hide results
-            cddSearchInput.value = ''; // Clear lookup inputs
-            subjectSearchInput.value = '';
-            setStatusMessage(cddStatus, `CDD '${cddValue}' selecionado.`, 'success');
-
-            // Optionally auto-fill first subject if not already filled
-             if (!form.assunto1.value.trim() && description) {
-                form.assunto1.value = description.split(/[\/\-:]/)[0].trim(); // Take first part of description
-             }
-
+             form.cdd.value = cddValue.replace(/[Rr]\s*/, '');
+             cddResultsContainer.classList.add('hidden');
+             cddSearchInput.value = ''; subjectSearchInput.value = '';
+             setStatusMessage(cddStatus, `CDD '${cddValue}' selecionado.`, 'success');
+             if (!form.assunto1.value.trim() && description) { form.assunto1.value = description.split(/[\/\-:]/)[0].trim(); }
         }
 
-         const debouncedCddSearch = debounce(searchCdd, 400); // 400ms debounce
+         const debouncedCddSearch = debounce(searchCdd, 400);
 
         function clearCddLookup() {
-            cddSearchInput.value = '';
-            subjectSearchInput.value = '';
-             cddExactMatchCheckbox.checked = false;
-             subjectWholeWordCheckbox.checked = false;
-            cddResultsContainer.style.display = 'none';
+            cddSearchInput.value = ''; subjectSearchInput.value = '';
+             cddExactMatchCheckbox.checked = false; subjectWholeWordCheckbox.checked = false;
+             cddResultsContainer.classList.add('hidden');
              setStatusMessage(cddStatus, 'Busca CDD limpa.', 'info');
         }
 
+        // --- Dynamic Form UI Logic ---
+        function updateFormFields(tipo) {
+            // Hide all type-specific groups first
+            showHideElements('.field-group-livro', false);
+            showHideElements('.field-group-periodico', false);
+            showHideElements('.field-group-cd_vinil', false);
+            showHideElements('.field-group-partitura', false);
+            showHideElements('.field-group-video', false);
+            showHideElements('.field-group-mapa', false);
 
-        // --- MARC Generation Logic ---
+            // Hide specific single fields by default, show only if needed
+            showHideElements('.issn-field', false);
+            showHideElements('.num-padrao-field', false);
+            // Cutter field is always enabled now
+            cutterInput.disabled = false;
+            cutterInput.closest('.form-field.cutter-field').classList.remove('hidden'); // Ensure cutter field is visible
+
+
+            // Show common fields that might have been hidden by group rules
+            showHideElements('.isbn-field', true); // ISBN shown by default
+
+             // Default labels
+            document.getElementById('label_resp1_prenome').textContent = 'Autor Prenome:';
+            document.getElementById('label_resp1_sobrenome').textContent = 'Autor Sobrenome:';
+            document.getElementById('label_resp2_prenome').textContent = 'Autor 2 Prenome:';
+            document.getElementById('label_resp2_sobrenome').textContent = 'Autor 2 Sobrenome:';
+            document.getElementById('label_resp3_prenome').textContent = 'Autor 3 Prenome:';
+            document.getElementById('label_resp3_sobrenome').textContent = 'Autor 3 Sobrenome:';
+            document.getElementById('label_editora').textContent = 'Editora:';
+
+            // Show fields and adjust labels based on selected type
+            if (tipo === 'livro') {
+                showHideElements('.field-group-livro', true);
+            } else if (tipo === 'periodico') {
+                showHideElements('.field-group-periodico', true);
+                showHideElements('.issn-field', true);
+                showHideElements('.isbn-field', false);
+                document.getElementById('label_resp1_prenome').textContent = 'Entidade Resp./Etc.:';
+                document.getElementById('label_resp1_sobrenome').textContent = ''; // Clear if not applicable
+            } else if (tipo === 'cd_vinil') {
+                showHideElements('.field-group-cd_vinil', true);
+                showHideElements('.num-padrao-field', true);
+                showHideElements('.isbn-field', false);
+                document.getElementById('label_resp1_prenome').textContent = 'Compositor/Intérprete Prenome:';
+                document.getElementById('label_resp1_sobrenome').textContent = 'Compositor/Intérprete Sobrenome:';
+                document.getElementById('label_editora').textContent = 'Gravadora (Label):';
+                 document.getElementById('label_interprete_principal').textContent = 'Intérprete Principal:';
+                 document.getElementById('label_resp2_prenome').textContent = 'Resp. Secund. Prenome:';
+                 document.getElementById('label_resp2_sobrenome').textContent = 'Resp. Secund. Sobrenome:';
+                 document.getElementById('label_resp3_prenome').textContent = 'Resp. Secund. Prenome:';
+                 document.getElementById('label_resp3_sobrenome').textContent = 'Resp. Secund. Sobrenome:';
+            } else if (tipo === 'partitura') {
+                showHideElements('.field-group-partitura', true);
+                document.getElementById('label_resp1_prenome').textContent = 'Compositor Prenome:';
+                document.getElementById('label_resp1_sobrenome').textContent = 'Compositor Sobrenome:';
+            } else if (tipo === 'video') {
+                showHideElements('.field-group-video', true);
+                showHideElements('.num-padrao-field', true);
+                showHideElements('.isbn-field', false);
+                document.getElementById('label_resp1_prenome').textContent = 'Produtor/Outro Resp. Prenome:';
+                document.getElementById('label_resp1_sobrenome').textContent = 'Produtor/Outro Resp. Sobrenome:';
+                document.getElementById('label_editora').textContent = 'Produtora/Distribuidora:';
+                document.getElementById('label_interprete_principal').textContent = 'Ator Principal:';
+                 document.getElementById('label_resp2_prenome').textContent = 'Resp. Secund. Prenome:';
+                 document.getElementById('label_resp2_sobrenome').textContent = 'Resp. Secund. Sobrenome:';
+                 document.getElementById('label_resp3_prenome').textContent = 'Resp. Secund. Prenome:';
+                 document.getElementById('label_resp3_sobrenome').textContent = 'Resp. Secund. Sobrenome:';
+            } else if (tipo === 'mapa') {
+                showHideElements('.field-group-mapa', true);
+                document.getElementById('label_resp1_prenome').textContent = 'Cartógrafo/Resp. Prenome:';
+                document.getElementById('label_resp1_sobrenome').textContent = 'Cartógrafo/Resp. Sobrenome:';
+                document.getElementById('label_editora').textContent = 'Editor/Publicador:';
+            }
+        }
+
+
+        // --- MARC Generation Logic --- (Mostly unchanged from previous version)
          function gatherMarcData() {
-             // Simplified gathering - adapt as needed for original structure/variables
             return {
+                tipo: tipoMaterialSelect.value,
                 isbn: form.isbn.value.trim(),
+                issn: form.issn.value.trim(),
+                numPadrao: form.numPadrao.value.trim(),
                 cdd: form.cdd.value.trim(),
-                cutter: form.cutter.value.trim(),
+                cutter: cutterInput.value.trim(),
                 ano: form.ano.value.trim(),
                 edicao: form.edicao.value.trim(),
-                autor1: form.autor1.value.trim(),
-                autor2: form.autor2.value.trim(),
+                resp1_prenome: form.resp1_prenome.value.trim(),
+                resp1_sobrenome: form.resp1_sobrenome.value.trim(),
+                resp2_prenome: form.resp2_prenome.value.trim(),
+                resp2_sobrenome: form.resp2_sobrenome.value.trim(),
+                resp3_prenome: form.resp3_prenome.value.trim(),
+                resp3_sobrenome: form.resp3_sobrenome.value.trim(),
+                diretor: form.diretor.value.trim(),
+                interprete_principal: form.interprete_principal.value.trim(),
                 titulo: form.titulo.value.trim(),
                 desp: form.desp.value.trim() || '0',
                 desps: form.desps.value.trim() || '0',
                 subtitulo: form.subtitulo.value.trim(),
                 local: form.local.value.trim(),
                 editora: form.editora.value.trim(),
-                paginas: form.paginas.value.trim(),
+                descFisica: form.descFisica.value.trim(),
                 ilust: form.ilust.checked,
                 color: form.color.checked,
+                duracao: form.duracao.value.trim(),
+                escala: form.escala.value.trim(),
+                frequencia: form.frequencia.value.trim(),
+                num_inicio: form.num_inicio.value.trim(),
+                num_fim: form.num_fim.value.trim(),
+                conteudo: form.conteudo.value.trim(),
+                elenco: form.elenco.value.trim(),
+                forma_genero: form.forma_genero.value.trim(),
+                instrumentacao: form.instrumentacao.value.trim(),
+                detalhes_tecnicos: form.detalhes_tecnicos.value.trim(),
                 serie: form.serie.value.trim(),
                 nota: form.nota.value.trim(),
                 assunto1: form.assunto1.value.trim(),
                 assunto2: form.assunto2.value.trim(),
-                assunto3: form.assunto3.value.trim(),
-                autor12: form.autor12.value.trim(),
-                autor22: form.autor22.value.trim(),
-                autor13: form.autor13.value.trim(),
-                autor23: form.autor23.value.trim()
+                assunto3: form.assunto3.value.trim()
             };
         }
 
         function generateMarcOutput() {
             const data = gatherMarcData();
-             let output = "&lt;inicio&gt;<br>"; // Using HTML entities for < >
-             const nbsp = "&nbsp;";
-             const espaco = " ";
-            const hifen = " - ";
-             const enttit = (data.autor1 || data.autor2) ? "1" : "0";
+            let output = "&lt;inicio&gt;<br>";
+            const espaco = " ";
+            const hifen = "-";
+            let temEntradaPrincipal = false;
 
-             if(data.isbn) { output += `020${nbsp.repeat(4)}$a ${data.isbn}<br>`; }
+            // Helper function for names
+            function formatName(prenome, sobrenome) {
+                let nome = sobrenome || prenome;
+                if (sobrenome && prenome) nome = `${sobrenome}, ${prenome}`;
+                return nome.trim();
+            }
 
-             output += `040${nbsp.repeat(4)}$a BR-SvUFB $b por $c BR-SvUFB<br>`; // Assuming fixed value
+            // --- LÍDER (Simplified) ---
+            let tipoRegistro = ' '; let nivelBib = ' ';
+            switch (data.tipo) {
+                case 'livro': tipoRegistro = 'a'; nivelBib = 'm'; break;
+                case 'periodico': tipoRegistro = 'a'; nivelBib = 's'; break;
+                case 'cd_vinil': tipoRegistro = 'j'; nivelBib = 'm'; break; // or 'i'
+                case 'partitura': tipoRegistro = 'c'; nivelBib = 'm'; break;
+                case 'video': tipoRegistro = 'g'; nivelBib = 'm'; break;
+                case 'mapa': tipoRegistro = 'e'; nivelBib = 'm'; break;
+                default: tipoRegistro = '?'; nivelBib = '?'; break;
+            }
+            output += `LDR${nbsp.repeat(5)}${tipoRegistro}${nivelBib} ${nbsp.repeat(3)} 22 ... (Líder Simplificado)<br>`;
 
-             if (data.cdd) { output += `082 04${nbsp}$a ${data.cdd}<br>`; }
+            // --- 007 e 008 (Very Simplified/Placeholder) ---
+             let campo007 = '';
+             switch (data.tipo) {
+                 case 'cd_vinil': campo007 = `007 ${nbsp.repeat(4)}sd${nbsp}fsngnnmmned (Exemplo CD)<br>`; break;
+                 case 'video':    campo007 = `007 ${nbsp.repeat(4)}vf${nbsp}cbahou ${nbsp.repeat(6)} (Exemplo VHS)<br>`; break;
+                 case 'mapa':     campo007 = `007 ${nbsp.repeat(4)}aj${nbsp}canzn${nbsp.repeat(7)} (Exemplo Mapa)<br>`; break;
+                 case 'partitura': campo007 = `007 ${nbsp.repeat(4)}ca${nbsp.repeat(12)} (Exemplo Partitura)<br>`; break;
+             }
+             if (campo007) output += campo007;
+             const anoPub008 = data.ano.padEnd(4, ' ' ).substring(0, 4);
+             const langCode = 'por'; // Assuming Portuguese
+             output += `008 ${nbsp.repeat(4)}${data.ano.substring(2, 4)}${data.ano.substring(0, 2)}??s${anoPub008}${nbsp.repeat(4)}xx${nbsp.repeat(11)}${langCode} d (Campo 008 depende muito do tipo - Simplificado)<br>`;
 
-            if (data.cdd) {
-                 output += `090${nbsp.repeat(4)}$a ${data.cdd}`;
-                if (data.cutter) { output += `${espaco}$b ${data.cutter}`; }
-                if (data.ano) { output += `${espaco}$c ${data.ano}`; }
-                if (data.edicao) { output += `${hifen}${data.edicao}. ed.`; }
-                output += `${espaco}$8 35<br>`; // Assuming fixed $8
+
+             // --- Campos Variáveis ---
+             output += `040 ${nbsp.repeat(3)}$a BR-SvUFB $b por $c BR-SvUFB<br>`;
+
+             // 02X - Identificadores
+             if (data.isbn && (data.tipo === 'livro' || data.tipo === 'partitura' || data.tipo === 'cd_vinil' || data.tipo === 'video')) { output += `020 ${nbsp.repeat(3)}$a ${data.isbn}<br>`; }
+             if (data.issn && data.tipo === 'periodico') { output += `022 ${nbsp.repeat(3)}$a ${data.issn}<br>`; }
+             if (data.numPadrao && (data.tipo === 'cd_vinil' || data.tipo === 'video')) { output += `024 1 ${nbsp}$a ${data.numPadrao}<br>`; }
+
+             // 082/090 - Classificação
+             if (data.cdd) { output += `082 04 $a ${data.cdd}<br>`; }
+             if (data.cdd) {
+                 output += `090 ${nbsp.repeat(3)}$a ${data.cdd}`;
+                 if (data.cutter) { output += `${espaco}$b ${data.cutter}`; } // Cutter applies more broadly now potentially
+                 if (data.ano && (data.tipo === 'livro' || data.tipo === 'partitura')) { output += `${espaco}$c ${data.ano}`; }
+                 if (data.edicao && (data.tipo === 'livro' || data.tipo === 'partitura')) { output += `${espaco}${hifen}${data.edicao}. ed.`; }
+                 output += `<br>`;
              }
 
-             if(data.autor1 || data.autor2){
-                 // Format Author: LastName, FirstName (Handle missing parts)
-                 let authorString = data.autor2 || data.autor1; // Prefer lastname
-                 if (data.autor2 && data.autor1) {
-                     authorString = `${data.autor2}, ${data.autor1}`;
+             // --- Entrada Principal (1XX) ---
+              let nomePrincipalFormatado = '';
+             // Decide based on type and available data
+             if (data.tipo === 'livro' || data.tipo === 'partitura' || data.tipo === 'mapa') {
+                 nomePrincipalFormatado = formatName(data.resp1_prenome, data.resp1_sobrenome);
+                 if (nomePrincipalFormatado) {
+                     let relatorCode = data.tipo === 'partitura' ? ' $e compositor' : (data.tipo === 'mapa' ? ' $e cartógrafo' : '');
+                     output += `100 1 ${nbsp}$a ${nomePrincipalFormatado}${relatorCode}<br>`;
+                     temEntradaPrincipal = true;
                  }
-                 output += `100 1${nbsp.repeat(2)}$a ${authorString}<br>`;
+             } else if (data.tipo === 'cd_vinil') {
+                  nomePrincipalFormatado = formatName(data.resp1_prenome, data.resp1_sobrenome);
+                 if (nomePrincipalFormatado) { // Prioritize composer/author name if given
+                     output += `100 1 ${nbsp}$a ${nomePrincipalFormatado} $e compositor<br>`;
+                     temEntradaPrincipal = true;
+                 } else if (data.interprete_principal) { // Then main performer
+                     output += `100 1 ${nbsp}$a ${data.interprete_principal} $e intérprete<br>`;
+                     temEntradaPrincipal = true;
+                 }
+             } else if (data.tipo === 'video') {
+                 if (data.diretor) {
+                     output += `100 1 ${nbsp}$a ${data.diretor} $e diretor<br>`;
+                     temEntradaPrincipal = true;
+                 } else { // Fallback to producer/other name?
+                      nomePrincipalFormatado = formatName(data.resp1_prenome, data.resp1_sobrenome);
+                      if (nomePrincipalFormatado) {
+                         output += `100 1 ${nbsp}$a ${nomePrincipalFormatado} $e produtor<br>`;
+                         temEntradaPrincipal = true;
+                      }
+                 }
+            }
+            // Add 110 logic if needed
+            // Add 130 logic if needed (esp. for Periodicals)
+
+            // --- Título (245) ---
+            const enttit = temEntradaPrincipal ? "1" : "0";
+            const desp245 = (data.tipo === 'livro' || data.tipo === 'periodico') ? data.desp : '0';
+            let gmd = ''; // General Material Designation
+             switch (data.tipo) {
+                 case 'cd_vinil': gmd = '$h [gravação sonora]'; break;
+                 case 'partitura': gmd = '$h [música]'; break;
+                 case 'video': gmd = '$h [videogravação]'; break;
+                 case 'mapa': gmd = '$h [material cartográfico]'; break;
+             }
+
+            output += `245 ${enttit}${desp245} $a ${data.titulo}${gmd ? espaco + gmd : ''}`;
+             if (data.subtitulo) { output += ` : $b ${data.subtitulo}`; }
+
+            // Build $c (Statement of Responsibility) - Avoid duplicating main entry
+             let responsabilidade = '';
+             const resp1NomeCompleto = formatName(data.resp1_prenome, data.resp1_sobrenome);
+             if (resp1NomeCompleto && !temEntradaPrincipal) { // Add if not already main entry
+                 responsabilidade = resp1NomeCompleto;
+             } else if (data.tipo === 'video' && data.diretor && !temEntradaPrincipal) {
+                 responsabilidade = `direção de ${data.diretor}`;
+             } else if (data.tipo === 'cd_vinil' && data.interprete_principal && !temEntradaPrincipal) {
+                 responsabilidade = data.interprete_principal;
+             }
+             // Add secondary responsibilities if needed (e.g., from resp2/3)
+             // ... (logic to add resp2/3 based on type) ...
+
+            if (responsabilidade) { output += ` / $c ${responsabilidade}`; }
+             output += `.<br>`;
+
+             // --- Edição (250) ---
+             if (data.edicao && (data.tipo === 'livro' || data.tipo === 'partitura' || data.tipo === 'mapa')) {
+                output += `250 ${nbsp.repeat(3)}$a ${data.edicao}. ed.<br>`;
+             }
+
+            // --- Dados Matemáticos (Mapa) (255) ---
+             if (data.escala && data.tipo === 'mapa') {
+                 output += `255 ${nbsp.repeat(3)}$a Escala ${data.escala}.<br>`;
+             }
+
+             // --- Publicação/Distribuição (264) ---
+             let pubField264 = '';
+             if (data.local) { pubField264 += `$a ${data.local} :`; }
+             const editorLabel = data.editora;
+             if (editorLabel) { pubField264 += ` $b ${editorLabel}`; }
+             if (data.ano) { pubField264 += `, $c ${data.ano}`; }
+             if (pubField264.trim()) {
+                 let ind2 = '1';
+                 if (data.tipo === 'video' || data.tipo === 'cd_vinil') ind2 = '2'; // Or 0 for production?
+                 output += `264 ${nbsp}1 ${pubField264.trim()}<br>`;
              }
 
 
-            output += `245 ${enttit}${data.desp} $a ${data.titulo}`;
-             if(data.subtitulo) { output += `: $b ${data.subtitulo}`; }
-            let authorCredits = data.autor1 || data.autor2 ? `${data.autor1}${espaco}${data.autor2}`.trim() : '';
-            if (authorCredits) { output += ` / $c ${authorCredits}.-<br>`; }
-             else { output += `.-<br>`; }
-
-
-            if (data.edicao) { output += `250${nbsp.repeat(4)}$a ${data.edicao}. ed.-<br>`; }
-
-
-             let pubField = '';
-             if (data.local) { pubField += `${nbsp.repeat(4)}$a ${data.local}:`; }
-             if (data.editora) { pubField += ` $b ${data.editora}`; }
-             if (data.ano) { pubField += ` $c ${data.ano}.`; }
-            if (pubField) { output += `260${pubField}-<br>`; }
-
-
-            if (data.paginas) {
-                 output += `300${nbsp.repeat(4)}$a ${data.paginas} p.`;
-                let descDetails = '';
-                 if (data.ilust) { descDetails += 'il.'; }
-                 if (data.color) { descDetails += (descDetails ? ' ' : '') + 'color.'; }
-                 if (descDetails) { output += ` : $b ${descDetails}`; }
-                output += `<br>`;
+            // --- Descrição Física (300) ---
+            if (data.descFisica) {
+                output += `300 ${nbsp.repeat(3)}$a ${data.descFisica}`;
+                 let detalhes300b = ''; let detalhes300c = '';
+                 if (data.ilust && (data.tipo === 'livro' || data.tipo === 'mapa' || data.tipo === 'partitura')) { detalhes300b += 'ilustrações'; }
+                 if (data.color && (data.tipo === 'livro' || data.tipo === 'mapa' || data.tipo === 'partitura')) { detalhes300b += (detalhes300b ? ', ' : '') + 'coloridas'; }
+                 if (data.tipo === 'cd_vinil') { detalhes300b = 'digital'; detalhes300c = '12 cm.'; }
+                 if (data.tipo === 'video') { detalhes300b = 'sonoro, colorido'; detalhes300c = '12 cm.'; }
+                if (detalhes300b) output += ` : $b ${detalhes300b}`;
+                if (detalhes300c) output += ` ; $c ${detalhes300c}`;
+                 output += '.<br>';
             }
 
 
-             if(data.serie) { output += `440${nbsp.repeat(2)}${data.desps} $a ${data.serie}<br>`; }
-            if(data.nota) { output += `500${nbsp.repeat(4)}$a ${data.nota}<br>`; }
-
-             if(data.assunto1) { output += `650${nbsp}04${nbsp}$a ${data.assunto1}<br>`; }
-             if(data.assunto2) { output += `650${nbsp}04${nbsp}$a ${data.assunto2}<br>`; }
-             if(data.assunto3) { output += `650${nbsp}04${nbsp}$a ${data.assunto3}<br>`; }
-
-             if(data.autor12 || data.autor22) {
-                 let authorString = data.autor22 || data.autor12;
-                 if (data.autor22 && data.autor12) authorString = `${data.autor22}, ${data.autor12}`;
-                 output += `700 1${nbsp.repeat(2)}$a ${authorString}<br>`;
+             // --- Frequência (310) e Numeração (362) para Periódicos ---
+             if (data.tipo === 'periodico') {
+                 if (data.frequencia) { output += `310 ${nbsp.repeat(3)}$a ${data.frequencia}<br>`; }
+                 if (data.num_inicio) { output += `362 0 ${nbsp}$a ${data.num_inicio}${data.num_fim ? '-' + data.num_fim : ''}<br>`; }
              }
 
-             if(data.autor13 || data.autor23) {
-                 let authorString = data.autor23 || data.autor13;
-                 if (data.autor23 && data.autor13) authorString = `${data.autor23}, ${data.autor13}`;
-                output += `700 1${nbsp.repeat(2)}$a ${authorString}<br>`;
+             // --- Série (490/8XX) ---
+             if (data.serie) {
+                 output += `490 1 ${nbsp}$a ${data.serie}<br>`;
+                 output += `830 ${nbsp}0 $a ${data.serie}.<br>`;
+             }
+
+             // --- Notas (5XX) ---
+             if (data.nota) { output += `500 ${nbsp.repeat(3)}$a ${data.nota}<br>`; }
+             if (data.duracao && (data.tipo === 'cd_vinil' || data.tipo === 'video')) { output += `500 ${nbsp.repeat(3)}$a Duração total aproximada: ${data.duracao}<br>`; }
+             if (data.detalhes_tecnicos && (data.tipo === 'cd_vinil' || data.tipo === 'video')) { output += `538 ${nbsp.repeat(3)}$a ${data.detalhes_tecnicos}<br>`; }
+             if (data.conteudo && (data.tipo === 'cd_vinil' || data.tipo === 'video')) { output += `505 0 ${nbsp}$a ${data.conteudo.replace(/\n/g, ' -- ')}.<br>`; }
+             if (data.elenco && data.tipo === 'video') { output += `511 1 ${nbsp}$a Elenco: ${data.elenco}.<br>`; }
+             if (data.interprete_principal && data.tipo === 'cd_vinil' && !temEntradaPrincipal) {
+                 output += `511 1 ${nbsp}$a Intérprete: ${data.interprete_principal}.<br>`;
+             }
+             if (data.instrumentacao && data.tipo === 'partitura') { output += `500 ${nbsp.repeat(3)}$a Instrumentação: ${data.instrumentacao}.<br>`; }
+
+
+             // --- Assuntos (6XX) ---
+             if (data.assunto1) { output += `650 ${nbsp}4 $a ${data.assunto1}<br>`; }
+             if (data.assunto2) { output += `650 ${nbsp}4 $a ${data.assunto2}<br>`; }
+             if (data.assunto3) { output += `650 ${nbsp}4 $a ${data.assunto3}<br>`; }
+             if (data.forma_genero && (data.tipo === 'cd_vinil' || data.tipo === 'partitura' || data.tipo === 'video')) {
+                 output += `655 ${nbsp}7 $a ${data.forma_genero}.$2 local<br>`;
             }
 
+             // --- Entradas Secundárias (7XX) ---
+             let nomeResp2 = formatName(data.resp2_prenome, data.resp2_sobrenome);
+             if (nomeResp2) { output += `700 1 ${nbsp}$a ${nomeResp2}<br>`; }
+             let nomeResp3 = formatName(data.resp3_prenome, data.resp3_sobrenome);
+             if (nomeResp3) { output += `700 1 ${nbsp}$a ${nomeResp3}<br>`; }
+             // Add secondary entry for performer if composer was main entry
+             if (data.tipo === 'cd_vinil' && temEntradaPrincipal && nomePrincipalFormatado !== data.interprete_principal && data.interprete_principal) {
+                  output += `700 1 ${nbsp}$a ${data.interprete_principal} $e intérprete<br>`;
+             }
+             // Add 710 for corporate bodies etc.
 
-             output += "&lt;fim&gt;"; // Using HTML entities for < >
+             output += "&lt;fim&gt;";
 
             // Display the output
              marcOutputDiv.innerHTML = output;
-            marcOutputContainer.style.display = 'block'; // Show the container
+            marcOutputContainer.classList.remove('hidden');
          }
 
 
         function copyMarcOutput() {
-             const marcText = marcOutputDiv.innerText || marcOutputDiv.textContent; // Get text content
-             if (marcText) {
-                 navigator.clipboard.writeText(marcText)
+             const tempDiv = document.createElement('div');
+             tempDiv.innerHTML = marcOutputDiv.innerHTML.replace(/<br\s*\/?>/gi, '\n').replace(/&nbsp;/g, ' ');
+             const marcText = tempDiv.textContent || tempDiv.innerText || "";
+             if (marcText.trim()) {
+                 navigator.clipboard.writeText(marcText.trim())
                      .then(() => setStatusMessage(generalStatus, "MARC copiado para área de transferência!", 'success', 2500))
-                     .catch(err => {
-                        console.error("Erro ao copiar MARC:", err);
-                         setStatusMessage(generalStatus, "Falha ao copiar MARC.", 'error');
-                         alert("Não foi possível copiar o texto. Seu navegador pode não suportar esta ação ou requerer permissão.");
-                    });
-            } else {
-                setStatusMessage(generalStatus, "Nada para copiar.", 'info', 2000);
-            }
+                     .catch(err => { console.error("Erro ao copiar MARC:", err); setStatusMessage(generalStatus, "Falha ao copiar MARC.", 'error'); alert("Não foi possível copiar o texto."); });
+            } else { setStatusMessage(generalStatus, "Nada para copiar.", 'info', 2000); }
          }
 
         // --- Clear Function ---
         function clearAllFields() {
-            form.reset(); // Resets form elements to default values
+            form.reset();
             marcOutputDiv.innerHTML = '';
-            marcOutputContainer.style.display = 'none';
-             clearCddLookup(); // Clears CDD specific search fields and results
+            marcOutputContainer.classList.add('hidden');
+             clearCddLookup();
             cutterStatus.textContent = '';
              cddStatus.textContent = '';
+            updateFormFields(tipoMaterialSelect.value); // Reset fields visibility
              setStatusMessage(generalStatus, "Campos limpos.", 'info', 2000);
-             form.isbn.focus(); // Focus on first field
+             // Focus logic might need adjustment depending on the first visible field
+             const firstVisibleInput = form.querySelector('input:not([type="hidden"]):not(:disabled), select:not(:disabled)');
+             if(firstVisibleInput) firstVisibleInput.focus();
          }
 
         // --- Event Listeners ---
         window.addEventListener('load', () => {
             loadCutterData(cutterDataString);
              loadCddData(cddDataString);
+             updateGeneralStatus();
+             updateFormFields(tipoMaterialSelect.value); // Initial setup
 
-             // Cutter lookup trigger
-            form.autor2.addEventListener('input', debouncedCutterLookup);
+             // Cutter lookup triggers
+             resp1SobrenomeInput.addEventListener('input', debouncedCutterLookup);
+             resp1PrenomeInput.addEventListener('input', debouncedCutterLookup); // Trigger also on prenome (if sobrenome is empty)
+             tituloInput.addEventListener('input', debouncedCutterLookup); // NEW: Trigger on title change
+             despInput.addEventListener('input', debouncedCutterLookup); // NEW: Trigger on desp change
+
+             // Type selection trigger
+             tipoMaterialSelect.addEventListener('change', (e) => {
+                 updateFormFields(e.target.value);
+                 debouncedCutterLookup(); // Update cutter suggestion immediately on type change
+             });
 
             // CDD lookup triggers
             cddSearchInput.addEventListener('input', debouncedCddSearch);
@@ -12217,8 +12691,6 @@ Classificação Decimal de Dewey
              document.querySelector('button[name="gerarMarc"]').addEventListener('click', generateMarcOutput);
             document.querySelector('button[name="limparForm"]').addEventListener('click', clearAllFields);
             document.getElementById('copy-marc-button').addEventListener('click', copyMarcOutput);
-
-
         });
 
     </script>
